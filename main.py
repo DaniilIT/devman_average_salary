@@ -1,3 +1,4 @@
+from itertools import count
 from urllib.parse import urljoin
 from sys import stderr
 
@@ -9,13 +10,15 @@ MOSCOW_ID = 1
 MONTH_PERIOD = 30
 
 
-def get_jobs(language):
+def get_jobs(language, page_number):
     """ Функция возвращает вакансии с сайта hh.ru для программирования на определенном языке
     """
     url = urljoin(HEADHUNTER_URL, '/vacancies')
     payload = {'area': MOSCOW_ID,
                'period': MONTH_PERIOD,
-               'text': f'программист {language}'}
+               'text': f'программист {language}',
+               'per_page': 100,
+               'page': page_number}
     response = requests.get(url, params=payload)
     response.raise_for_status()
 
@@ -41,33 +44,50 @@ def predict_rub_salary(vacancy):
     return None
 
 
-def main():
-    languages = ['java', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'java', 'javascript', 'python']
-
+def get_hh_statistics(languages):
+    """ Возвращает статистику по языкам программирования
+    """
     programmer_jobs = {}
     for language in languages:
-        try:
-            jobs = get_jobs(language)
-            vacancies = jobs.get('items', [])
+        jobs_count = None
+        salaries = []
+        for page_number in count():
+            print(f'{language}: page №{page_number}')
+            try:
+                jobs = get_jobs(language, page_number)
+                vacancies = jobs.get('items')
 
-            salaries = []
-            for vacancy in vacancies:
-                salary = predict_rub_salary(vacancy)
-                if salary:
-                    salaries.append(salary)
+                for vacancy in vacancies:
+                    salary = predict_rub_salary(vacancy)
+                    if salary:
+                        salaries.append(salary)
 
-            vacancies_processed = len(salaries)
-            average_salary = int(sum(salaries) / vacancies_processed)
+                if page_number == (jobs.get('pages') - 1):
+                    jobs_count = jobs.get('found')
+                    break
 
-            programmer_jobs[language] = {
-                'vacancies_found': jobs.get('found'),
-                'vacancies_processed': vacancies_processed,
-                'average_salary': average_salary,
-            }
-        except requests.exceptions.HTTPError:
-            stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            except requests.exceptions.HTTPError:
+                stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+                break
 
-    for language, programmer_job in sorted(programmer_jobs.items(), key=lambda item: item[1]['average_salary'], reverse=True):
+        vacancies_processed = len(salaries)
+        average_salary = int(sum(salaries) / vacancies_processed)
+
+        programmer_jobs[language] = {
+            'vacancies_found': jobs_count,
+            'vacancies_processed': vacancies_processed,
+            'average_salary': average_salary,
+        }
+
+    return programmer_jobs
+
+
+def main():
+    languages = ['Fortran', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'Java', 'Javascript', 'Python']
+    programmer_jobs = get_hh_statistics(languages)
+
+    for language, programmer_job in sorted(programmer_jobs.items(),
+                                           key=lambda item: item[1]['average_salary'], reverse=True):
         print(f'{language}:')
         for k, v in programmer_job.items():
             print(f'\t{k}: {v}')
