@@ -32,26 +32,45 @@ def predict_rub_salary(vacancy):
         salary_to = salary.get('to')
 
         if salary_from and salary_to:
-            return int((salary_from + salary_to) / 2)
+            return (salary_from + salary_to) / 2
         elif salary_from:
-            return int(1.2 * salary_from)
+            return 1.2 * salary_from
         elif salary_to:
-            return int(0.8 * salary_to)
+            return 0.8 * salary_to
 
     return None
 
 
 def main():
-    language = 'python'
-    try:
-        jobs = get_jobs(language)
-        vacancies = jobs.get('items', [])
+    languages = ['java', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'java', 'javascript', 'python']
 
-        for vacancy in vacancies:
-            print(predict_rub_salary(vacancy))
+    programmer_jobs = {}
+    for language in languages:
+        try:
+            jobs = get_jobs(language)
+            vacancies = jobs.get('items', [])
 
-    except requests.exceptions.HTTPError:
-        stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            salaries = []
+            for vacancy in vacancies:
+                salary = predict_rub_salary(vacancy)
+                if salary:
+                    salaries.append(salary)
+
+            vacancies_processed = len(salaries)
+            average_salary = int(sum(salaries) / vacancies_processed)
+
+            programmer_jobs[language] = {
+                'vacancies_found': jobs.get('found'),
+                'vacancies_processed': vacancies_processed,
+                'average_salary': average_salary,
+            }
+        except requests.exceptions.HTTPError:
+            stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+
+    for language, programmer_job in sorted(programmer_jobs.items(), key=lambda item: item[1]['average_salary'], reverse=True):
+        print(f'{language}:')
+        for k, v in programmer_job.items():
+            print(f'\t{k}: {v}')
 
 
 if __name__ == '__main__':
