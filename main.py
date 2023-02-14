@@ -4,12 +4,13 @@ from urllib.parse import urljoin
 
 import requests
 from dotenv import dotenv_values
+from terminaltables import AsciiTable
 
 HEADHUNTER_URL = 'https://api.hh.ru'
 HH_MOSCOW_ID = 1
 HH_MONTH_PERIOD = 30
 
-SUPERJOB_URL = 'https://api.superjob.ru/2.0'
+SUPERJOB_URL = 'https://api.superjob.ru/2.0/'
 SJ_MOSCOW_ID = 4
 SJ_CATALOG_KEY = 48
 
@@ -20,7 +21,7 @@ def get_jobs_hh(language, page_number):
     url = urljoin(HEADHUNTER_URL, '/vacancies')
     payload = {'area': HH_MOSCOW_ID,
                'period': HH_MONTH_PERIOD,
-               'text': f'программист {language}',
+               'text': f'программист {language.lower()}',
                'per_page': 100,
                'page': page_number}
     response = requests.get(url, params=payload)
@@ -103,11 +104,11 @@ def predict_rub_salary_sj(vacancy):
 def get_jobs_sj(token, language, page_number):
     """ Функция возвращает вакансии с сайта superjob для программирования на определенном языке
     """
-    url = urljoin(SUPERJOB_URL, 'vacancies')
+    url = urljoin(SUPERJOB_URL, 'vacancies/')
     headers = {'X-Api-App-Id': token}
     payload = {'town': SJ_MOSCOW_ID,
                'catalogues': SJ_CATALOG_KEY,
-               'keyword': language,
+               'keyword': language.lower(),
                'count': 100,
                'page': page_number}
     response = requests.get(url, headers=headers, params=payload)
@@ -158,24 +159,35 @@ def get_sj_statistics(token, languages):
     return programmer_jobs
 
 
-def main():
-    languages = ['Fortran', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'Java', 'Javascript', 'Python']
-    # programmer_jobs = get_hh_statistics(languages)
-    #
-    # for language, programmer_job in sorted(programmer_jobs.items(),
-    #                                        key=lambda item: item[1]['average_salary'], reverse=True):
-    #     print(f'{language}:')
-    #     for k, v in programmer_job.items():
-    #         print(f'\t{k}: {v}')
-
-    superjob_token = dotenv_values('.env')['superjob_token']
-    programmer_jobs = get_sj_statistics(superjob_token, languages)
-
+def print_statistics_table(programmer_jobs, title):
+    """ Напечатать таблицу со статистикой по зарплате
+    """
+    rows = [['язык программирования', 'вакансий найдено', 'вакансий обработано', 'средняя зарплата']]
     for language, programmer_job in sorted(programmer_jobs.items(),
                                            key=lambda item: item[1]['average_salary'], reverse=True):
-        print(f'{language}:')
-        for k, v in programmer_job.items():
-            print(f'\t{k}: {v}')
+        rows.append([language,
+                     programmer_job['vacancies_found'],
+                     programmer_job['vacancies_processed'],
+                     programmer_job['average_salary'],
+                     ])
+
+    table = AsciiTable(rows, title)
+    print()
+    print(table.table)
+    print()
+
+
+def main():
+    languages = ['Fortran', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'Java', 'JavaScript', 'Python']
+    superjob_token = dotenv_values('.env')['superjob_token']
+
+    print("HeadHunter")
+    hh_jobs = get_hh_statistics(languages)
+    print("SuperJob")
+    sj_jobs = get_sj_statistics(superjob_token, languages)
+
+    print_statistics_table(hh_jobs, 'HeadHunter Moscow')
+    print_statistics_table(sj_jobs, 'SuperJob Moscow')
 
 
 if __name__ == '__main__':
