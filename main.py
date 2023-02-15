@@ -9,10 +9,12 @@ from terminaltables import AsciiTable
 HEADHUNTER_URL = 'https://api.hh.ru'
 HH_MOSCOW_ID = 1
 HH_MONTH_PERIOD = 30
+HH_PER_PAGE = 100
 
 SUPERJOB_URL = 'https://api.superjob.ru/2.0/'
 SJ_MOSCOW_ID = 4
 SJ_CATALOG_KEY = 48
+SJ_PER_PAGE = 100
 
 
 def get_jobs_hh(language, page_number):
@@ -22,7 +24,7 @@ def get_jobs_hh(language, page_number):
     payload = {'area': HH_MOSCOW_ID,
                'period': HH_MONTH_PERIOD,
                'text': f'программист {language.lower()}',
-               'per_page': 100,
+               'per_page': HH_PER_PAGE,
                'page': page_number}
     response = requests.get(url, params=payload)
     response.raise_for_status()
@@ -107,7 +109,7 @@ def get_jobs_sj(token, language, page_number):
     payload = {'town': SJ_MOSCOW_ID,
                'catalogues': SJ_CATALOG_KEY,
                'keyword': language.lower(),
-               'count': 100,
+               'count': SJ_PER_PAGE,
                'page': page_number}
     response = requests.get(url, headers=headers, params=payload)
     response.raise_for_status()
