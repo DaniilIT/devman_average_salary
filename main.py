@@ -54,42 +54,40 @@ def predict_rub_salary_hh(vacancy):
     return None
 
 
-def get_hh_statistics(languages):
-    """ Возвращает статистику по языкам программирования
+def get_hh_statistics(language):
+    """ Возвращает статистику по языку программирования
     """
-    programmer_jobs = {}
-    for language in languages:
-        jobs_count = None
-        salaries = []
-        for page_number in count():
-            print(f'{language}: page №{page_number}')
-            try:
-                jobs = get_jobs_hh(language, page_number)
-                vacancies = jobs.get('items')
+    jobs_count = None
+    salaries = []
+    for page_number in count():
+        try:
+            jobs = get_jobs_hh(language, page_number)
+            vacancies = jobs.get('items')
 
-                for vacancy in vacancies:
-                    salary = predict_rub_salary_hh(vacancy)
-                    if salary:
-                        salaries.append(salary)
+            for vacancy in vacancies:
+                salary = predict_rub_salary_hh(vacancy)
+                if salary:
+                    salaries.append(salary)
 
-                if page_number == (jobs.get('pages') - 1):
-                    jobs_count = jobs.get('found')
-                    break
-
-            except requests.exceptions.HTTPError:
-                stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            if page_number == (jobs.get('pages') - 1):
+                jobs_count = jobs.get('found')
                 break
 
-        vacancies_processed = len(salaries)
+        except requests.exceptions.HTTPError:
+            stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            break
+
+    vacancies_processed = len(salaries)
+    try:
         average_salary = int(sum(salaries) / vacancies_processed)
+    except ZeroDivisionError:
+        average_salary = 0
 
-        programmer_jobs[language] = {
-            'vacancies_found': jobs_count,
-            'vacancies_processed': vacancies_processed,
-            'average_salary': average_salary,
-        }
-
-    return programmer_jobs
+    return {
+        'vacancies_found': jobs_count,
+        'vacancies_processed': vacancies_processed,
+        'average_salary': average_salary,
+    }
 
 
 def predict_rub_salary_sj(vacancy):
@@ -118,76 +116,72 @@ def get_jobs_sj(token, language, page_number):
     return vacancies
 
 
-def get_sj_statistics(token, languages):
-    """ Возвращает статистику по языкам программирования
+def get_sj_statistics(token, language):
+    """ Возвращает статистику по языку программирования
     """
-    programmer_jobs = {}
-    for language in languages:
-        jobs_count = None
-        salaries = []
-        for page_number in count():
-            print(f'{language}: page №{page_number}')
-            try:
-                jobs = get_jobs_sj(token, language, page_number)
-                vacancies = jobs.get('objects')
+    jobs_count = None
+    salaries = []
+    for page_number in count():
+        try:
+            jobs = get_jobs_sj(token, language, page_number)
+            vacancies = jobs.get('objects')
 
-                for vacancy in vacancies:
-                    salary = predict_rub_salary_sj(vacancy)
-                    if salary:
-                        salaries.append(salary)
+            for vacancy in vacancies:
+                salary = predict_rub_salary_sj(vacancy)
+                if salary:
+                    salaries.append(salary)
 
-                if not jobs.get('more'):
-                    jobs_count = jobs.get('total')
-                    break
-
-            except requests.exceptions.HTTPError:
-                stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            if not jobs.get('more'):
+                jobs_count = jobs.get('total')
                 break
 
-        vacancies_processed = len(salaries)
-        try:
-            average_salary = int(sum(salaries) / vacancies_processed)
-        except ZeroDivisionError:
-            average_salary = 0
+        except requests.exceptions.HTTPError:
+            stderr.write(f'Не удалось сделать запрос для языка {language}\n')
+            break
 
-        programmer_jobs[language] = {
-            'vacancies_found': jobs_count,
-            'vacancies_processed': vacancies_processed,
-            'average_salary': average_salary,
-        }
+    vacancies_processed = len(salaries)
+    try:
+        average_salary = int(sum(salaries) / vacancies_processed)
+    except ZeroDivisionError:
+        average_salary = 0
 
-    return programmer_jobs
+    return {
+        'vacancies_found': jobs_count,
+        'vacancies_processed': vacancies_processed,
+        'average_salary': average_salary,
+    }
 
 
-def print_statistics_table(programmer_jobs, title):
+def print_statistics_table(statistics, title):
     """ Напечатать таблицу со статистикой по зарплате
     """
     rows = [['язык программирования', 'вакансий найдено', 'вакансий обработано', 'средняя зарплата']]
-    for language, programmer_job in sorted(programmer_jobs.items(),
-                                           key=lambda item: item[1]['average_salary'], reverse=True):
+    for language, language_statistics in sorted(statistics.items(),
+                                                key=lambda item: item[1]['average_salary'], reverse=True):
         rows.append([language,
-                     programmer_job['vacancies_found'],
-                     programmer_job['vacancies_processed'],
-                     programmer_job['average_salary'],
+                     language_statistics['vacancies_found'],
+                     language_statistics['vacancies_processed'],
+                     language_statistics['average_salary'],
                      ])
 
     table = AsciiTable(rows, title)
     print()
     print(table.table)
-    print()
 
 
 def main():
     languages = ['Fortran', 'Go', 'C', 'C#', 'C++', 'PHP', 'Ruby', 'Java', 'JavaScript', 'Python']
     superjob_token = dotenv_values('.env')['superjob_token']
 
-    print("HeadHunter")
-    hh_jobs = get_hh_statistics(languages)
-    print("SuperJob")
-    sj_jobs = get_sj_statistics(superjob_token, languages)
+    hh_statistics = {}
+    sj_statistics = {}
+    for language in languages:
+        print(language)
+        hh_statistics[language] = get_hh_statistics(language)
+        sj_statistics[language] = get_sj_statistics(superjob_token, language)
 
-    print_statistics_table(hh_jobs, 'HeadHunter Moscow')
-    print_statistics_table(sj_jobs, 'SuperJob Moscow')
+    print_statistics_table(hh_statistics, 'HeadHunter Moscow')
+    print_statistics_table(sj_statistics, 'SuperJob Moscow')
 
 
 if __name__ == '__main__':
