@@ -176,7 +176,6 @@ def main():
     hh_statistics = {}
     sj_statistics = {}
     for language in languages:
-        print(language)
         hh_statistics[language] = get_hh_statistics(language)
         sj_statistics[language] = get_sj_statistics(superjob_token, language)
 
